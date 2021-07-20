@@ -1,11 +1,23 @@
-import { AxiosRequestConfig, AxiosPromise, AxiosResponse } from './types'
-import { parseHeaders } from './helpers/headers'
-import { transformResponse } from './helpers/data'
-import { createError } from './helpers/error'
+import { AxiosRequestConfig, AxiosPromise, AxiosResponse } from '../types'
+import { parseHeaders } from '../helpers/headers'
+import { createError } from '../helpers/error'
+import { isURLSameOrigin } from '../helpers/url'
+import { cookie } from '../helpers/cookie'
 
 export function xhr(config: AxiosRequestConfig): AxiosPromise {
   return new Promise((resolve, reject) => {
-    const { data = null, url, method = 'get', headers, responseType, timeout } = config
+    const {
+      data = null,
+      url,
+      method = 'get',
+      headers,
+      responseType,
+      timeout,
+      cancelToken,
+      withCredentials,
+      xsrfCookieName,
+      xsrfHeaderName
+    } = config
 
     const request = new XMLHttpRequest()
 
@@ -16,8 +28,13 @@ export function xhr(config: AxiosRequestConfig): AxiosPromise {
     if (timeout) {
       request.timeout = timeout
     }
+    if (withCredentials) {
+      request.withCredentials = withCredentials
+    }
 
-    request.open(method.toUpperCase(), url, true)
+    console.log(request)
+
+    request.open(method.toUpperCase(), url!, true)
 
     request.onreadystatechange = () => {
       if (request.readyState !== 4) return
@@ -26,7 +43,7 @@ export function xhr(config: AxiosRequestConfig): AxiosPromise {
       const responseHeaders = request.getAllResponseHeaders()
       const responseData = responseType !== 'text' ? request.response : request.responseText
       const response: AxiosResponse = {
-        data: transformResponse(responseData),
+        data: responseData,
         status: request.status,
         statusText: request.statusText,
         headers: parseHeaders(responseHeaders),
@@ -44,6 +61,13 @@ export function xhr(config: AxiosRequestConfig): AxiosPromise {
       reject(createError(`Timeout of ${timeout}`, config, 'ECONNABORTED', request))
     }
 
+    if ((withCredentials || isURLSameOrigin(url!)) && xsrfCookieName) {
+      const xsrfValue = cookie.read(xsrfCookieName)
+      if (xsrfValue && xsrfHeaderName) {
+        headers[xsrfHeaderName] = xsrfValue
+      }
+    }
+
     Object.keys(headers).forEach(name => {
       if (data === null && name.toLowerCase() === 'content-type') {
         delete headers[name]
@@ -51,6 +75,13 @@ export function xhr(config: AxiosRequestConfig): AxiosPromise {
       }
       request.setRequestHeader(name, headers[name])
     })
+
+    if (cancelToken) {
+      cancelToken.promise.then(reason => {
+        request.abort()
+        reject(reason)
+      })
+    }
 
     request.send(data)
 
