@@ -1,4 +1,4 @@
-import { isDate, isPlainObject } from './util'
+import { isDate, isPlainObject, isURLSearchParams } from './util'
 
 interface URLOrigin {
   protocol: string
@@ -17,34 +17,45 @@ function encode(val: string): string {
     .replace(/%5D/gi, ']')
 }
 
-export function buildURL(url: string, params?: any): string {
+export function buildURL(
+  url: string,
+  params?: any,
+  paramsSerializer?: (params: any) => string
+): string {
   // 判断是否有params
   if (!params) return url
-  // 定义参数数组用于拼接params
-  const parts: string[] = []
-  Object.keys(params).forEach(key => {
-    const val = params[key]
-    // 值是null或undefined的情况
-    if (val === null || val === undefined) return
-    let values = []
-    if (Array.isArray(val)) {
-      values = val
-      key += '[]'
-    } else {
-      values = [val]
-    }
-    values.forEach(val => {
-      if (isDate(val)) {
-        val = val.toISOString()
+  let serializedParams
+  if (paramsSerializer) {
+    serializedParams = paramsSerializer(params)
+  } else if (isURLSearchParams(params)) {
+    serializedParams = params.toString()
+  } else {
+    // 定义参数数组用于拼接params
+    const parts: string[] = []
+    Object.keys(params).forEach(key => {
+      const val = params[key]
+      // 值是null或undefined的情况
+      if (val === null || val === undefined) return
+      let values = []
+      if (Array.isArray(val)) {
+        values = val
+        key += '[]'
+      } else {
+        values = [val]
       }
-      if (isPlainObject(val)) {
-        val = JSON.stringify(val)
-      }
-      parts.push(`${encode(key)}=${encode(val)}`)
+      values.forEach(val => {
+        if (isDate(val)) {
+          val = val.toISOString()
+        }
+        if (isPlainObject(val)) {
+          val = JSON.stringify(val)
+        }
+        parts.push(`${encode(key)}=${encode(val)}`)
+      })
     })
-  })
+    serializedParams = parts.join('&')
+  }
 
-  let serializedParams = parts.join('&')
   if (serializedParams) {
     // 处理带hash的情况
     const markIndex = url.indexOf('#')
@@ -56,8 +67,15 @@ export function buildURL(url: string, params?: any): string {
     // 处理url本身带参数的情况,本身有参数则拼接&和参数,没有则拼接?和参数
     url += (url.indexOf('?') === -1 ? '?' : '&') + serializedParams
   }
-
   return url
+}
+
+export function isAbsoluteURL(url: string): boolean {
+  return /(^[a-z][a-z\d\+\-\.]*:)?\/\//i.test(url)
+}
+
+export function combineURL(baseURL: string, relativeURL?: string): string {
+  return relativeURL ? baseURL.replace(/\/+$/, '') + '/' + relativeURL.replace(/^\/+/, '') : baseURL
 }
 
 const urlParsingNode = document.createElement('a')

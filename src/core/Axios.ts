@@ -2,13 +2,12 @@ import {
   AxiosRequestConfig,
   AxiosPromise,
   Method,
-  AxiosClass,
   AxiosResponse,
   ResolvedFn,
   RejectedFn
 } from '../types'
-import { dispatchRequest } from './dispatchRequest'
-import InterceptorManager from './InterceptorManager'
+import { dispatchRequest, transformURL } from './dispatchRequest'
+import { InterceptorManager } from './InterceptorManager'
 import { mergeConfig } from './mergeConfig'
 
 interface Interceptors {
@@ -21,7 +20,7 @@ interface PromiseChain<T> {
   rejected?: RejectedFn
 }
 
-export class Axios implements AxiosClass {
+export class Axios {
   defaults: AxiosRequestConfig
   interceptors: Interceptors
   constructor(initConfig: AxiosRequestConfig) {
@@ -96,6 +95,11 @@ export class Axios implements AxiosClass {
 
   patch(url: string, data?: any, config?: AxiosRequestConfig): AxiosPromise {
     return this._requiestMothodWithData('patch', url, data, config)
+  }
+
+  getUri(config?: AxiosRequestConfig): string {
+    config = mergeConfig(this.defaults, config)
+    return transformURL(config)
   }
 
   _requiestMothodWithoutData(
