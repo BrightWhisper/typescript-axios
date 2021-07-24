@@ -57,7 +57,6 @@ describe('requests', () => {
       expect((reason as AxiosError).message).toBe('Network Error');
       expect(reason.request).toEqual(expect.any(XMLHttpRequest));
 
-      // 这里要恢复前面的uninstall，否则后面的会报错
       jasmine.Ajax.install();
     }
   });
@@ -72,15 +71,13 @@ describe('requests', () => {
       err = error;
     });
 
-    // 最好不要直接return，因为then里面还有异步逻辑，所以最好用done参数代表结束
     getAjaxRequest().then(request => {
-      // 这里使用trigger来触发xhr的setTimeou
       // @ts-ignore
       request.eventBus.trigger('timeout');
 
       setTimeout(() => {
         expect(err instanceof Error).toBeTruthy();
-        expect(err.message).toBe('Timeout of 2000');
+        expect(err.message).toBe('Timeout of 2000 ms exceeded');
         done();
       }, 100);
     });
